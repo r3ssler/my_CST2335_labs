@@ -28,21 +28,21 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  var _counter = 0.0;
-  double myFontSize = 30.0;
+  final TextEditingController _loginController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
-  void _incrementCounter() {
-    setState(() {
-        _counter++;
-      myFontSize = _counter;
-    });
+  String imagePath = "assets/images/question-mark.png";
+
+  void _handleLogin() {
+  String password = _passwordController.text;
+
+  setState(() {
+  if (password == "QWERTY123") {
+  imagePath = "assets/images/idea.png";
+  } else {
+  imagePath = "assets/images/stop.png";
   }
-
-  void _setNewValue(double newValue) {
-    setState(() {
-      myFontSize = newValue;
-      _counter = newValue;
-    });
+  });
   }
 
 
@@ -50,34 +50,46 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
+        backgroundColor: Colors.deepPurple[100],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text('You have pushed the button this many times:',
-              style: TextStyle(fontSize: myFontSize),
-            ),
-            Text(
-              '$_counter',
-              style: TextStyle(fontSize: myFontSize),
-            ),
-            Slider(
-              value: myFontSize,
-              min: 10.0,
-              max: 100.0,
-              onChanged: _setNewValue,
-            ),
-          ],
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Center(
+          child: Column(
+            children: <Widget>[
+              TextField(
+                controller: _loginController,
+                decoration: const InputDecoration(
+                  labelText: 'Login',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _handleLogin,
+                child: const Text("Login"),
+              ),
+              const SizedBox(height: 24),
+              Image.asset(
+                imagePath,
+                height: 250,
+                width: 250,
+              ),
+            ],
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
 }
+
