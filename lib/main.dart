@@ -39,9 +39,6 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
     if (password == "QWERTY1234" || password == "hi") {
       imagePath = "assets/images/idea.png";
-    } else
-    if (password == "HELLO"){
-      imagePath = "assets/images/idea.png";
     } else {
       imagePath = "assets/images/stop.png";
     }
