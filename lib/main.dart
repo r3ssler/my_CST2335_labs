@@ -46,11 +46,13 @@ class _MyHomePageState extends State<MyHomePage> {
   void _loadLoginData() async {
     String? savedUsername = await _storage.read(key: 'username');
     String? savedPassword = await _storage.read(key: 'password');
+    String? savedImagePath = await _storage.read(key: 'imagePath');
 
-    if (savedUsername != null && savedPassword != null) {
+    if (savedUsername != null && savedPassword != null && savedImagePath != null) {
       setState(() {
         _loginController.text = savedUsername;
         _passwordController.text = savedPassword;
+        imagePath = savedImagePath;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,6 +93,7 @@ class _MyHomePageState extends State<MyHomePage> {
             onPressed: () async {
               await _storage.write(key: 'username', value: _loginController.text);
               await _storage.write(key: 'password', value: _passwordController.text);
+              await _storage.write(key: 'imagePath', value: imagePath);
               Navigator.pop(context);
             },
             child: const Text("Yes"),
@@ -98,6 +101,13 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _loginController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
