@@ -58,9 +58,19 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/question-mark.png
-    - assets/images/idea.png
-    - assets/images/stop.png
+    - assets/images/beef.jpg
+    - assets/images/chicken.jpg
+    - assets/images/pork.jpg
+    - assets/images/seafood.jpg
+    - assets/images/main_dishes.jpg
+    - assets/images/salad.jpg
+    - assets/images/side_dishes.jpg
+    - assets/images/crockpot.jpg
+    - assets/images/ice_cream.jpg
+    - assets/images/brownies.jpg
+    - assets/images/pies.jpg
+    - assets/images/cookies.jpg
+
 
 
   # An image asset can refer to one or more resolution-specific "variants", see
