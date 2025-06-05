@@ -24,7 +24,7 @@ class CategoryPage extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
               "BROWSE CATEGORIES",
