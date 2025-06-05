@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 void main() {
   runApp(const MyApp());
 }
+
+// Secure storage instance
+final _storage = FlutterSecureStorage();
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -10,11 +14,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lab 02',
+      title: 'Lab 04 - Login with Storage',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'Lab 02 - Login Image'),
+      home: const MyHomePage(title: 'Lab 04 - Login Image'),
     );
   }
 }
@@ -33,18 +37,68 @@ class _MyHomePageState extends State<MyHomePage> {
 
   String imagePath = "assets/images/question-mark.png";
 
+  @override
+  void initState() {
+    super.initState();
+    _loadLoginData();
+  }
+
+  void _loadLoginData() async {
+    String? savedUsername = await _storage.read(key: 'username');
+    String? savedPassword = await _storage.read(key: 'password');
+
+    if (savedUsername != null && savedPassword != null) {
+      setState(() {
+        _loginController.text = savedUsername;
+        _passwordController.text = savedPassword;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Login info loaded from storage")),
+      );
+    }
+  }
+
   void _handleLogin() {
     String password = _passwordController.text;
 
     setState(() {
-    if (password == "QWERTY1234" || password == "hi") {
-      imagePath = "assets/images/idea.png";
-    } else {
-      imagePath = "assets/images/stop.png";
-    }
+      if (password == "QWERTY1234" || password == "hi") {
+        imagePath = "assets/images/idea.png";
+      } else {
+        imagePath = "assets/images/stop.png";
+      }
     });
+
+    _showSaveDialog();
   }
 
+  void _showSaveDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Save Login Info"),
+        content: const Text("Do you want to save your username and password?"),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await _storage.deleteAll(); // remove saved data
+              Navigator.pop(context);
+            },
+            child: const Text("No"),
+          ),
+          TextButton(
+            onPressed: () async {
+              await _storage.write(key: 'username', value: _loginController.text);
+              await _storage.write(key: 'password', value: _passwordController.text);
+              Navigator.pop(context);
+            },
+            child: const Text("Yes"),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,4 +146,3 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 }
-
