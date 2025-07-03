@@ -1,497 +1,372 @@
-// Import the encrypted shared preferences package for secure local storage
-import 'package:encrypted_shared_preferences/encrypted_shared_preferences.dart';
-
-// UserRepository class - Handles encrypted storage and retrieval of user profile data
-class UserRepository {
-  // Instance of EncryptedSharedPreferences for secure data storage
-  final EncryptedSharedPreferences _prefs = EncryptedSharedPreferences();
-
-  // User profile fields with default empty values
-  String firstName = '';       // Stores user's first name
-  String lastName = '';        // Stores user's last name
-  String phoneNumber = '';     // Stores user's phone number
-  String email = '';           // Stores user's email address
-
-  // Loads user data from encrypted shared preferences
-  // Returns a Future that completes when data is loaded
-  Future<void> loadData() async {
-    // Retrieve each field from secure storage with empty string as fallback
-    firstName = await _prefs.getString('firstName') ?? '';
-    lastName = await _prefs.getString('lastName') ?? '';
-    phoneNumber = await _prefs.getString('phoneNumber') ?? '';
-    email = await _prefs.getString('email') ?? '';
-  }
-
-  // Saves current user data to encrypted shared preferences
-  // Returns a Future that completes when data is saved
-  Future<void> saveData() async {
-    // Store each field in secure storage
-    await _prefs.setString('firstName', firstName);
-    await _prefs.setString('lastName', lastName);
-    await _prefs.setString('phoneNumber', phoneNumber);
-    await _prefs.setString('email', email);
-  }
-}
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'user_repository.dart';
-import 'profile_page.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-// LoginPage widget that handles user authentication
-class LoginPage extends StatefulWidget {
-  // Repository for managing user profile data
-  final UserRepository userRepository = UserRepository();
+// Secure storage instance
+final _storage = FlutterSecureStorage();
 
-  @override
-  _LoginPageState createState() => _LoginPageState();
+// Repository for profile data
+class ProfileRepository {
+  static const _firstNameKey = 'firstName';
+  static const _lastNameKey = 'lastName';
+  static const _phoneKey = 'phoneNumber';
+  static const _emailKey = 'emailAddress';
+
+  Future<void> saveProfile({
+    required String firstName,
+    required String lastName,
+    required String phoneNumber,
+    required String emailAddress,
+  }) async {
+    await _storage.write(key: _firstNameKey, value: firstName);
+    await _storage.write(key: _lastNameKey, value: lastName);
+    await _storage.write(key: _phoneKey, value: phoneNumber);
+    await _storage.write(key: _emailKey, value: emailAddress);
+  }
+
+  Future<Map<String, String>> loadProfile() async {
+    final firstName = await _storage.read(key: _firstNameKey) ?? '';
+    final lastName = await _storage.read(key: _lastNameKey) ?? '';
+    final phoneNumber = await _storage.read(key: _phoneKey) ?? '';
+    final emailAddress = await _storage.read(key: _emailKey) ?? '';
+    return {
+      'firstName': firstName,
+      'lastName': lastName,
+      'phoneNumber': phoneNumber,
+      'emailAddress': emailAddress,
+    };
+  }
 }
 
-class _LoginPageState extends State<LoginPage> {
-  // Controllers for login form fields
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Lab 04 - Login with Storage',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      ),
+      home: const MyHomePage(title: 'Lab 04 - Login Image'),
+    );
+  }
+}
+
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
+  final String title;
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _loginController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  // SharedPreferences instance for storing login credentials
-  late SharedPreferences _prefs;
-
-  // Path to the image displayed based on login status
-  String imageSource = "images/question.png";
+  String imagePath = "assets/images/question-mark.png";
 
   @override
   void initState() {
     super.initState();
-    // Initialize preferences and load saved data when widget is created
-    _initPrefs().then((_) {
-      widget.userRepository.loadData(); // Load profile data when app starts
-    });
+    _loadLoginData();
   }
 
-  // Initialize SharedPreferences instance
-  Future<void> _initPrefs() async {
-    _prefs = await SharedPreferences.getInstance();
-    _loadSavedCredentials();
-  }
+  void _loadLoginData() async {
+    String? savedUsername = await _storage.read(key: 'username');
+    String? savedPassword = await _storage.read(key: 'password');
+    String? savedImagePath = await _storage.read(key: 'imagePath');
 
-  // Load saved username and password from SharedPreferences
-  Future<void> _loadSavedCredentials() async {
-    try {
-      final String? savedUsername = _prefs.getString('username');
-      final String? savedPassword = _prefs.getString('password');
+    if (savedUsername != null && savedPassword != null && savedImagePath != null) {
+      setState(() {
+        _loginController.text = savedUsername;
+        _passwordController.text = savedPassword;
+        imagePath = savedImagePath;
+      });
 
-      // If credentials exist, populate the text fields
-      if (savedUsername != null && savedPassword != null) {
-        setState(() {
-          _loginController.text = savedUsername;
-          _passwordController.text = savedPassword;
-        });
-
-        // Show notification that credentials were loaded
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Previous login credentials have been loaded.'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Login info loaded from storage")),
+        );
       }
-    } catch (e) {
-      print('Error loading credentials: $e');
     }
   }
 
-  // Save current credentials to SharedPreferences
-  Future<void> _saveCredentials() async {
-    try {
-      await _prefs.setString('username', _loginController.text);
-      await _prefs.setString('password', _passwordController.text);
-    } catch (e) {
-      print('Error saving credentials: $e');
+  void _handleLogin() {
+    String password = _passwordController.text;
+
+    if (password == "QWERTY1234" || password == "hi") {
+      setState(() {
+        imagePath = "assets/images/idea.png";
+      });
+      _showSaveDialog();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ProfilePage(username: _loginController.text),
+        ),
+      );
+    } else {
+      setState(() {
+        imagePath = "assets/images/stop.png";
+      });
+      // Do not show save dialog on failed login
     }
   }
 
-  // Remove saved credentials from SharedPreferences
-  Future<void> _clearCredentials() async {
-    try {
-      await _prefs.remove('username');
-      await _prefs.remove('password');
-    } catch (e) {
-      print('Error clearing credentials: $e');
-    }
-  }
-
-  // Show dialog asking user if they want to save credentials
-  void _showSaveCredentialsDialog() {
+  void _showSaveDialog() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Save Credentials'),
-          content: const Text('Would you like to save your username and password for next time?'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('No'),
-              onPressed: () {
-                _clearCredentials();
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: const Text('Yes'),
-              onPressed: () {
-                _saveCredentials();
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Navigate to profile page if login is successful
-  void _navigateToProfilePage() {
-    if (_passwordController.text == "QWERTY123") {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => ProfilePage(
-            loginName: _loginController.text,
-            userRepository: widget.userRepository,
+      builder: (context) => AlertDialog(
+        title: const Text("Save Login Info"),
+        content: const Text("Do you want to save your username and password?"),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await _storage.deleteAll();
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text("No"),
           ),
-        ),
-      );
-      // Show welcome message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Welcome Back ${_loginController.text}'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
-  // Update displayed image based on login status
-  void _updateImage() {
-    setState(() {
-      if (_passwordController.text == "QWERTY123") {
-        imageSource = "images/idea.png"; // Success image
-        _navigateToProfilePage();
-      } else {
-        imageSource = "images/stop.png"; // Error image
-      }
-    });
-    _showSaveCredentialsDialog();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Login Page'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Username input field
-            TextField(
-              controller: _loginController,
-              decoration: const InputDecoration(
-                labelText: 'Login name',
-              ),
-            ),
-            // Password input field
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-              ),
-              obscureText: true, // Hide password characters
-            ),
-            const SizedBox(height: 20),
-            // Login button
-            ElevatedButton(
-              onPressed: _updateImage,
-              child: const Text('Login'),
-            ),
-            const SizedBox(height: 20),
-            // Status image
-            Image.asset(
-              imageSource,
-              width: 300,
-              height: 300,
-            )
-          ],
-        ),
+          TextButton(
+            onPressed: () async {
+              await _storage.write(key: 'username', value: _loginController.text);
+              await _storage.write(key: 'password', value: _passwordController.text);
+              await _storage.write(key: 'imagePath', value: imagePath);
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text("Yes"),
+          ),
+        ],
       ),
     );
-  }
-}
-
-// Import necessary Flutter material package and login page
-import 'package:flutter/material.dart';
-import 'login_page.dart';
-
-// Main function - Entry point of the Flutter application
-void main() {
-  // Run the application with MyApp widget as root
-  runApp(MyApp());
-}
-
-// MyApp widget - Root widget of the application
-class MyApp extends StatelessWidget {
-  // Build method - Describes the part of UI represented by this widget
-  @override
-  Widget build(BuildContext context) {
-    // MaterialApp widget provides fundamental app design elements
-    return MaterialApp(
-      // Hide debug banner in top-right corner
-      debugShowCheckedModeBanner: false,
-
-      // Set LoginPage as the initial screen (home screen)
-      home: LoginPage(),
-    );
-  }
-}
-
-
-// Import required Flutter material components and URL launcher package
-import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'user_repository.dart';
-
-// ProfilePage widget - Displays and manages user profile information
-class ProfilePage extends StatefulWidget {
-  // The username passed from login screen
-  final String loginName;
-
-  // Repository for storing/loading profile data
-  final UserRepository userRepository;
-
-  // Constructor with required parameters
-  const ProfilePage({
-    required this.loginName,
-    required this.userRepository,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  _ProfilePageState createState() => _ProfilePageState();
-}
-
-// State class for ProfilePage that manages the widget's state and behavior
-class _ProfilePageState extends State<ProfilePage> {
-  // Controllers for form text fields
-  late TextEditingController _firstNameController;
-  late TextEditingController _lastNameController;
-  late TextEditingController _phoneNumberController;
-  late TextEditingController _emailController;
-
-  // Loading state flag
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    // Load profile data when widget initializes
-    _loadProfileData();
-  }
-
-  // Asynchronously loads profile data from repository
-  Future<void> _loadProfileData() async {
-    // Wait for data to load from persistent storage
-    await widget.userRepository.loadData();
-
-    // Update state with loaded data
-    setState(() {
-      // Initialize controllers with loaded values
-      _firstNameController = TextEditingController(text: widget.userRepository.firstName);
-      _lastNameController = TextEditingController(text: widget.userRepository.lastName);
-      _phoneNumberController = TextEditingController(text: widget.userRepository.phoneNumber);
-      _emailController = TextEditingController(text: widget.userRepository.email);
-
-      // Mark loading as complete
-      _isLoading = false;
-    });
-
-    // Add listeners to automatically save changes
-    _firstNameController.addListener(_saveFirstName);
-    _lastNameController.addListener(_saveLastName);
-    _phoneNumberController.addListener(_savePhoneNumber);
-    _emailController.addListener(_saveEmail);
   }
 
   @override
   void dispose() {
-    // Clean up controllers when widget is disposed
-    _firstNameController.dispose();
-    _lastNameController.dispose();
-    _phoneNumberController.dispose();
-    _emailController.dispose();
+    _loginController.dispose();
+    _passwordController.dispose();
     super.dispose();
-  }
-
-  // Save first name to repository when changed
-  void _saveFirstName() {
-    widget.userRepository.firstName = _firstNameController.text;
-    widget.userRepository.saveData();
-  }
-
-  // Save last name to repository when changed
-  void _saveLastName() {
-    widget.userRepository.lastName = _lastNameController.text;
-    widget.userRepository.saveData();
-  }
-
-  // Save phone number to repository when changed
-  void _savePhoneNumber() {
-    widget.userRepository.phoneNumber = _phoneNumberController.text;
-    widget.userRepository.saveData();
-  }
-
-  // Save email to repository when changed
-  void _saveEmail() {
-    widget.userRepository.email = _emailController.text;
-    widget.userRepository.saveData();
-  }
-
-  // Launches URL for phone calls, SMS or email
-  Future<void> _launchUrl(String url) async {
-    try {
-      // Check if device can handle the URL scheme
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url));
-      } else {
-        // Show error if URL scheme not supported
-        _showUrlNotSupportedDialog(url);
-      }
-    } catch (e) {
-      _showUrlNotSupportedDialog(url);
-    }
-  }
-
-  // Shows dialog when URL scheme is not supported
-  void _showUrlNotSupportedDialog(String url) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Error'),
-          content: Text('This device does not support $url URLs'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Show loading indicator while data is loading
-    if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Profile Page')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title),
+        backgroundColor: Colors.deepPurple[100],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Center(
+          child: Column(
+            children: <Widget>[
+              TextField(
+                controller: _loginController,
+                decoration: const InputDecoration(
+                  labelText: 'Login',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _handleLogin,
+                child: const Text("Login"),
+              ),
+              const SizedBox(height: 24),
+              Image.asset(
+                imagePath,
+                height: 250,
+                width: 250,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-    // Main profile page layout
+class ProfilePage extends StatefulWidget {
+  final String username;
+  const ProfilePage({super.key, required this.username});
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final ProfileRepository _repo = ProfileRepository();
+
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Welcome Back! ${widget.username}')),
+      );
+    });
+  }
+
+  Future<void> _loadProfile() async {
+    final data = await _repo.loadProfile();
+    setState(() {
+      _firstNameController.text = data['firstName'] ?? '';
+      _lastNameController.text = data['lastName'] ?? '';
+      _phoneController.text = data['phoneNumber'] ?? '';
+      _emailController.text = data['emailAddress'] ?? '';
+    });
+  }
+
+  Future<void> _saveProfile() async {
+    await _repo.saveProfile(
+      firstName: _firstNameController.text,
+      lastName: _lastNameController.text,
+      phoneNumber: _phoneController.text,
+      emailAddress: _emailController.text,
+    );
+  }
+
+  Future<void> _launchUrl(Uri uri) async {
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Error'),
+            content: Text('Could not launch ${uri.toString()}'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile Page'),
+        backgroundColor: Colors.deepPurple[100],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(24.0),
+        child: ListView(
           children: [
-            // Welcome message with username
-            Text(
-              'Welcome Back ${widget.loginName}',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-
-            // First Name input field
-            Row(
-              children: [
-                Flexible(
-                  child: TextField(
-                    controller: _firstNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'First Name',
-                    ),
-                  ),
-                ),
-              ],
+            TextField(
+              controller: _firstNameController,
+              decoration: const InputDecoration(
+                labelText: 'First Name',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (_) => _saveProfile(),
             ),
             const SizedBox(height: 16),
-
-            // Last Name input field
-            Row(
-              children: [
-                Flexible(
-                  child: TextField(
-                    controller: _lastNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Last Name',
-                    ),
-                  ),
-                ),
-              ],
+            TextField(
+              controller: _lastNameController,
+              decoration: const InputDecoration(
+                labelText: 'Last Name',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (_) => _saveProfile(),
             ),
             const SizedBox(height: 16),
-
-            // Phone Number input with call and SMS buttons
             Row(
               children: [
-                Flexible(
+                Expanded(
                   child: TextField(
-                    controller: _phoneNumberController,
+                    controller: _phoneController,
                     decoration: const InputDecoration(
                       labelText: 'Phone Number',
+                      border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.phone,
+                    onChanged: (_) => _saveProfile(),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Call button
-                ElevatedButton(
-                  onPressed: () => _launchUrl('tel:${_phoneNumberController.text}'),
-                  child: const Icon(Icons.phone),
+                IconButton(
+                  icon: const Icon(Icons.sms),
+                  tooltip: 'Send SMS',
+                  onPressed: () {
+                    final phone = _phoneController.text;
+                    if (phone.isNotEmpty) {
+                      _launchUrl(Uri(scheme: 'sms', path: phone));
+                    }
+                  },
                 ),
-                const SizedBox(width: 8),
-                // SMS button
-                ElevatedButton(
-                  onPressed: () => _launchUrl('sms:${_phoneNumberController.text}'),
-                  child: const Icon(Icons.message),
+                IconButton(
+                  icon: const Icon(Icons.phone),
+                  tooltip: 'Call',
+                  onPressed: () {
+                    final phone = _phoneController.text;
+                    if (phone.isNotEmpty) {
+                      _launchUrl(Uri(scheme: 'tel', path: phone));
+                    }
+                  },
                 ),
               ],
             ),
             const SizedBox(height: 16),
-
-            // Email input with mail button
             Row(
               children: [
-                Flexible(
+                Expanded(
                   child: TextField(
                     controller: _emailController,
                     decoration: const InputDecoration(
                       labelText: 'Email address',
+                      border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.emailAddress,
+                    onChanged: (_) => _saveProfile(),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Email button
-                ElevatedButton(
-                  onPressed: () => _launchUrl('mailto:${_emailController.text}'),
-                  child: const Icon(Icons.mail),
+                IconButton(
+                  icon: const Icon(Icons.mail),
+                  tooltip: 'Send Email',
+                  onPressed: () {
+                    final email = _emailController.text;
+                    if (email.isNotEmpty) {
+                      _launchUrl(Uri(
+                        scheme: 'mailto',
+                        path: email,
+                      ));
+                    }
+                  },
                 ),
               ],
             ),
