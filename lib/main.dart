@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// Secure storage instance
-final _storage = FlutterSecureStorage();
+// Use encrypted shared preferences for Android
+AndroidOptions _getAndroidOptions() => const AndroidOptions(
+  encryptedSharedPreferences: true,
+);
+final _storage = FlutterSecureStorage(aOptions: _getAndroidOptions());
 
-// Repository for profile data with per-username keys
 class ProfileRepository {
   Future<void> saveProfile({
     required String username,
@@ -115,7 +117,6 @@ class _MyHomePageState extends State<MyHomePage> {
         actions: [
           TextButton(
             onPressed: () async {
-              // Only delete login info keys, not all storage!
               await _storage.delete(key: 'username');
               await _storage.delete(key: 'password');
               await _storage.delete(key: 'imagePath');
@@ -247,9 +248,25 @@ class _ProfilePageState extends State<ProfilePage> {
       phoneNumber: _phoneController.text,
       emailAddress: _emailController.text,
     );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile saved!')),
+      );
+    }
   }
 
-  Future<void> _launchUrl(Uri uri) async {
+  Future<void> _signOut() async {
+    // Do NOT delete login info keys here, so login info is preserved
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MyHomePage(title: 'Lab 05 - Login Image')),
+            (route) => false,
+      );
+    }
+  }
+
+  Future<void> _launchUrlWithDialog(Uri uri) async {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
@@ -257,8 +274,8 @@ class _ProfilePageState extends State<ProfilePage> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Error'),
-            content: Text('Could not launch ${uri.toString()}'),
+            title: const Text('Unsupported URL'),
+            content: Text('The URL ${uri.toString()} is not supported on this device.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -286,18 +303,29 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         title: const Text('Profile Page'),
         backgroundColor: Colors.deepPurple[100],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign Out',
+            onPressed: _signOut,
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: ListView(
           children: [
+            Text(
+              'Welcome Back! ${widget.username}',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
             TextField(
               controller: _firstNameController,
               decoration: const InputDecoration(
                 labelText: 'First Name',
                 border: OutlineInputBorder(),
               ),
-              onChanged: (_) => _saveProfile(),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -306,7 +334,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 labelText: 'Last Name',
                 border: OutlineInputBorder(),
               ),
-              onChanged: (_) => _saveProfile(),
             ),
             const SizedBox(height: 16),
             Row(
@@ -319,7 +346,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.phone,
-                    onChanged: (_) => _saveProfile(),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -329,7 +355,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   onPressed: () {
                     final phone = _phoneController.text;
                     if (phone.isNotEmpty) {
-                      _launchUrl(Uri(scheme: 'sms', path: phone));
+                      _launchUrlWithDialog(Uri(scheme: 'sms', path: phone));
                     }
                   },
                 ),
@@ -339,7 +365,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   onPressed: () {
                     final phone = _phoneController.text;
                     if (phone.isNotEmpty) {
-                      _launchUrl(Uri(scheme: 'tel', path: phone));
+                      _launchUrlWithDialog(Uri(scheme: 'tel', path: phone));
                     }
                   },
                 ),
@@ -356,7 +382,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.emailAddress,
-                    onChanged: (_) => _saveProfile(),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -366,14 +391,16 @@ class _ProfilePageState extends State<ProfilePage> {
                   onPressed: () {
                     final email = _emailController.text;
                     if (email.isNotEmpty) {
-                      _launchUrl(Uri(
-                        scheme: 'mailto',
-                        path: email,
-                      ));
+                      _launchUrlWithDialog(Uri(scheme: 'mailto', path: email));
                     }
                   },
                 ),
               ],
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _saveProfile,
+              child: const Text('Save'),
             ),
           ],
         ),
