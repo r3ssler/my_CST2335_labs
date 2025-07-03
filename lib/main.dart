@@ -5,30 +5,26 @@ import 'package:url_launcher/url_launcher.dart';
 // Secure storage instance
 final _storage = FlutterSecureStorage();
 
-// Repository for profile data
+// Repository for profile data with per-username keys
 class ProfileRepository {
-  static const _firstNameKey = 'firstName';
-  static const _lastNameKey = 'lastName';
-  static const _phoneKey = 'phoneNumber';
-  static const _emailKey = 'emailAddress';
-
   Future<void> saveProfile({
+    required String username,
     required String firstName,
     required String lastName,
     required String phoneNumber,
     required String emailAddress,
   }) async {
-    await _storage.write(key: _firstNameKey, value: firstName);
-    await _storage.write(key: _lastNameKey, value: lastName);
-    await _storage.write(key: _phoneKey, value: phoneNumber);
-    await _storage.write(key: _emailKey, value: emailAddress);
+    await _storage.write(key: 'firstName_$username', value: firstName);
+    await _storage.write(key: 'lastName_$username', value: lastName);
+    await _storage.write(key: 'phoneNumber_$username', value: phoneNumber);
+    await _storage.write(key: 'emailAddress_$username', value: emailAddress);
   }
 
-  Future<Map<String, String>> loadProfile() async {
-    final firstName = await _storage.read(key: _firstNameKey) ?? '';
-    final lastName = await _storage.read(key: _lastNameKey) ?? '';
-    final phoneNumber = await _storage.read(key: _phoneKey) ?? '';
-    final emailAddress = await _storage.read(key: _emailKey) ?? '';
+  Future<Map<String, String>> loadProfile(String username) async {
+    final firstName = await _storage.read(key: 'firstName_$username') ?? '';
+    final lastName = await _storage.read(key: 'lastName_$username') ?? '';
+    final phoneNumber = await _storage.read(key: 'phoneNumber_$username') ?? '';
+    final emailAddress = await _storage.read(key: 'emailAddress_$username') ?? '';
     return {
       'firstName': firstName,
       'lastName': lastName,
@@ -103,17 +99,10 @@ class _MyHomePageState extends State<MyHomePage> {
         imagePath = "assets/images/idea.png";
       });
       _showSaveDialog();
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ProfilePage(username: _loginController.text),
-        ),
-      );
     } else {
       setState(() {
         imagePath = "assets/images/stop.png";
       });
-      // Do not show save dialog on failed login
     }
   }
 
@@ -126,8 +115,17 @@ class _MyHomePageState extends State<MyHomePage> {
         actions: [
           TextButton(
             onPressed: () async {
-              await _storage.deleteAll();
+              // Only delete login info keys, not all storage!
+              await _storage.delete(key: 'username');
+              await _storage.delete(key: 'password');
+              await _storage.delete(key: 'imagePath');
               if (mounted) Navigator.pop(context);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfilePage(username: _loginController.text),
+                ),
+              );
             },
             child: const Text("No"),
           ),
@@ -137,6 +135,12 @@ class _MyHomePageState extends State<MyHomePage> {
               await _storage.write(key: 'password', value: _passwordController.text);
               await _storage.write(key: 'imagePath', value: imagePath);
               if (mounted) Navigator.pop(context);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfilePage(username: _loginController.text),
+                ),
+              );
             },
             child: const Text("Yes"),
           ),
@@ -226,7 +230,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadProfile() async {
-    final data = await _repo.loadProfile();
+    final data = await _repo.loadProfile(widget.username);
     setState(() {
       _firstNameController.text = data['firstName'] ?? '';
       _lastNameController.text = data['lastName'] ?? '';
@@ -237,6 +241,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _saveProfile() async {
     await _repo.saveProfile(
+      username: widget.username,
       firstName: _firstNameController.text,
       lastName: _lastNameController.text,
       phoneNumber: _phoneController.text,
