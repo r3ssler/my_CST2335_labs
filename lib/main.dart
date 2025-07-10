@@ -1,158 +1,156 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+// Entry point of the app
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
-// Secure storage instance
-final _storage = FlutterSecureStorage();
-
+// Root widget of the application
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lab 04 - Login with Storage',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      title: 'Shopping List',
+      home: Scaffold(
+        appBar: AppBar(title: Text("Shopping List")),
+        body: ListPage(), // Loads the main shopping list UI
       ),
-      home: const MyHomePage(title: 'Lab 04 - Login Image'),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-  final String title;
+// Model class representing a shopping item
+class ShoppingItem {
+  String name;
+  String quantity;
 
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  ShoppingItem(this.name, this.quantity);
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  final TextEditingController _loginController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-
-  String imagePath = "assets/images/question-mark.png";
-
+// Stateful widget to manage the shopping list state
+class ListPage extends StatefulWidget {
   @override
-  void initState() {
-    super.initState();
-    _loadLoginData();
-  }
+  _ListPageState createState() => _ListPageState();
+}
 
-  void _loadLoginData() async {
-    String? savedUsername = await _storage.read(key: 'username');
-    String? savedPassword = await _storage.read(key: 'password');
-    String? savedImagePath = await _storage.read(key: 'imagePath');
+class _ListPageState extends State<ListPage> {
+  // List to hold shopping items
+  List<ShoppingItem> shoppingList = [];
 
-    if (savedUsername != null && savedPassword != null && savedImagePath != null) {
-      setState(() {
-        _loginController.text = savedUsername;
-        _passwordController.text = savedPassword;
-        imagePath = savedImagePath;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Login info loaded from storage")),
-      );
-    }
-  }
-
-  void _handleLogin() {
-    String password = _passwordController.text;
-
-    setState(() {
-      if (password == "QWERTY1234" || password == "hi") {
-        imagePath = "assets/images/idea.png";
-      } else {
-        imagePath = "assets/images/stop.png";
-      }
-    });
-
-    _showSaveDialog();
-  }
-
-  void _showSaveDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Save Login Info"),
-        content: const Text("Do you want to save your username and password?"),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await _storage.deleteAll(); // remove saved data
-              Navigator.pop(context);
-            },
-            child: const Text("No"),
-          ),
-          TextButton(
-            onPressed: () async {
-              await _storage.write(key: 'username', value: _loginController.text);
-              await _storage.write(key: 'password', value: _passwordController.text);
-              await _storage.write(key: 'imagePath', value: imagePath);
-              Navigator.pop(context);
-            },
-            child: const Text("Yes"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _loginController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
+  // Controllers to retrieve input from text fields
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController quantityController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: Colors.deepPurple[100],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Center(
-          child: Column(
-            children: <Widget>[
-              TextField(
-                controller: _loginController,
-                decoration: const InputDecoration(
-                  labelText: 'Login',
-                  border: OutlineInputBorder(),
+    return Column(
+      children: [
+        // Row for input fields and the Add button
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            children: [
+              // Input for item name
+              Expanded(
+                child: TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(hintText: 'Item name'),
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
+              SizedBox(width: 8),
+              // Input for item quantity
+              Expanded(
+                child: TextField(
+                  controller: quantityController,
+                  decoration: InputDecoration(hintText: 'Quantity'),
+                  keyboardType: TextInputType.number,
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(width: 8),
+              // Button to add a new item
               ElevatedButton(
-                onPressed: _handleLogin,
-                child: const Text("Login"),
-              ),
-              const SizedBox(height: 24),
-              Image.asset(
-                imagePath,
-                height: 250,
-                width: 250,
+                onPressed: () {
+                  if (nameController.text.isNotEmpty &&
+                      quantityController.text.isNotEmpty) {
+                    setState(() {
+                      // Add item to the list
+                      shoppingList.add(ShoppingItem(
+                          nameController.text, quantityController.text));
+                      // Clear input fields
+                      nameController.clear();
+                      quantityController.clear();
+                    });
+                  }
+                },
+                child: Text('Add'),
               ),
             ],
           ),
         ),
-      ),
+
+        // Display the list of items or a message if empty
+        Expanded(
+          child: shoppingList.isEmpty
+              ? Center(child: Text("There are no items in the list"))
+              : ListView.builder(
+            itemCount: shoppingList.length,
+            itemBuilder: (context, index) {
+              return GestureDetector(
+                // Long press to trigger delete confirmation
+                onLongPress: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text("Delete Item"),
+                      content: Text(
+                          "Do you want to delete '${shoppingList[index].name}'?"),
+                      actions: [
+                        // Cancel deletion
+                        TextButton(
+                          child: Text("No"),
+                          onPressed: () =>
+                              Navigator.of(context).pop(),
+                        ),
+                        // Confirm deletion
+                        TextButton(
+                          child: Text("Yes"),
+                          onPressed: () {
+                            setState(() {
+                              shoppingList.removeAt(index);
+                            });
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                // Display each item
+                child: Container(
+                  alignment: Alignment.center,
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Item name
+                      Text(
+                        "${index + 1}: ${shoppingList[index].name}, ",
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      SizedBox(width: 10),
+                      // Item quantity
+                      Text(
+                        "quantity: ${shoppingList[index].quantity}",
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
