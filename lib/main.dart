@@ -100,7 +100,7 @@ class _ListPageState extends State<ListPage> {
         ),
         Expanded(
           child: shoppingList.isEmpty
-              ? Center(child: Text("There are no items in the list"))
+              ? Center(child: Text("There are no items in the lis"))
               : ListView.builder(
             itemCount: shoppingList.length,
             itemBuilder: (context, index) {
