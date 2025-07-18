@@ -1,158 +1,83 @@
 import 'package:flutter/material.dart';
-import 'shopping_item.dart';
-import 'database_helper.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-import 'package:sqflite/sqflite.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  if (kIsWeb) {
-    databaseFactory = databaseFactoryFfiWeb;
-  }
-
-  runApp(MyApp());
+void main() {
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Shopping List',
-      home: Scaffold(
-        appBar: AppBar(title: Text("Shopping List")),
-        body: ListPage(),
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
+      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
 
-class ListPage extends StatefulWidget {
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
+  final String title;
+
   @override
-  _ListPageState createState() => _ListPageState();
+  State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _ListPageState extends State<ListPage> {
-  List<ShoppingItem> shoppingList = [];
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController quantityController = TextEditingController();
-  final dbHelper = DatabaseHelper();
+class _MyHomePageState extends State<MyHomePage> {
+  var _counter = 0.0;
+  double myFontSize = 30.0;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadItems();
-  }
-
-  void _loadItems() async {
-    final items = await dbHelper.getItems();
+  void _incrementCounter() {
     setState(() {
-      shoppingList = items;
+        _counter++;
+      myFontSize = _counter;
     });
   }
 
+  void _setNewValue(double newValue) {
+    setState(() {
+      myFontSize = newValue;
+      _counter = newValue;
+    });
+  }
+
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(hintText: 'Item name'),
-                ),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: quantityController,
-                  decoration: InputDecoration(hintText: 'Quantity'),
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () async {
-                  if (nameController.text.isNotEmpty &&
-                      quantityController.text.isNotEmpty) {
-                    final newItem = ShoppingItem(
-                      nameController.text,
-                      quantityController.text,
-                    );
-                    newItem.id = await dbHelper.insertItem(newItem);
-                    setState(() {
-                      shoppingList.add(newItem);
-                      nameController.clear();
-                      quantityController.clear();
-                    });
-                  }
-                },
-                child: Text('Add'),
-              ),
-            ],
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text(widget.title),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Text('You have pushed the button this many times:',
+              style: TextStyle(fontSize: myFontSize),
+            ),
+            Text(
+              '$_counter',
+              style: TextStyle(fontSize: myFontSize),
+            ),
+            Slider(
+              value: myFontSize,
+              min: 10.0,
+              max: 100.0,
+              onChanged: _setNewValue,
+            ),
+          ],
         ),
-        Expanded(
-          child: shoppingList.isEmpty
-              ? Center(child: Text("There are no items in the list"))
-              : ListView.builder(
-            itemCount: shoppingList.length,
-            itemBuilder: (context, index) {
-              return GestureDetector(
-                onLongPress: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: Text("Delete Item"),
-                      content: Text(
-                          "Do you want to delete '${shoppingList[index].name}'?"),
-                      actions: [
-                        TextButton(
-                          child: Text("No"),
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                        TextButton(
-                          child: Text("Yes"),
-                          onPressed: () async {
-                            await dbHelper
-                                .deleteItem(shoppingList[index].id!);
-                            setState(() {
-                              shoppingList.removeAt(index);
-                            });
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                      ],
-                    ),
-                  );
-                },
-                child: Container(
-                  alignment: Alignment.center,
-                  padding: EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        "${index + 1}: ${shoppingList[index].name}, ",
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      SizedBox(width: 10),
-                      Text(
-                        "quantity: ${shoppingList[index].quantity}",
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _incrementCounter,
+        tooltip: 'Increment',
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
