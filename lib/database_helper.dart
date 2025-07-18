@@ -1,7 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'shopping_item.dart';
-import 'database_helper.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
