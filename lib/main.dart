@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
 
 void main() {
   runApp(const MyApp());
@@ -34,10 +33,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _incrementCounter() {
     setState(() {
-      _counter++;
-      if (_counter > 100) {
-        _counter = 1;
-      }
+        _counter++;
       myFontSize = _counter;
     });
   }
@@ -70,7 +66,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             Slider(
               value: myFontSize,
-              min: 1.0,
+              min: 10.0,
               max: 100.0,
               onChanged: _setNewValue,
             ),
