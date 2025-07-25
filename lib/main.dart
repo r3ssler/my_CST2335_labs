@@ -1,160 +1,171 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-
-import 'shopping_item.dart';
-import 'database_helper.dart';
+import 'package:path/path.dart';
+import 'todo_database.dart';
+import 'todo.dart';
+import 'todo_dao.dart';
+import 'package:sqflite/sqflite.dart' as sqflite;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (kIsWeb) {
-    databaseFactory = databaseFactoryFfiWeb;
-  }
-  runApp(MyApp());
+
+  // Initialize the database
+  final database = await $FloorTodoDatabase
+      .databaseBuilder('todo_database.db')
+      .build();
+
+  runApp(ToDoApp(database: database));
 }
 
-class MyApp extends StatelessWidget {
+class ToDoApp extends StatelessWidget {
+  final TodoDatabase database;
+  const ToDoApp({super.key, required this.database});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Responsive Shopping List',
-      home: ResponsiveShoppingList(),
+      title: 'To-Do List',
+      home: ToDoListPage(database: database),
     );
   }
 }
 
-class ResponsiveShoppingList extends StatefulWidget {
+class ToDoListPage extends StatefulWidget {
+  final TodoDatabase database;
+  const ToDoListPage({super.key, required this.database});
+
   @override
-  _ResponsiveShoppingListState createState() => _ResponsiveShoppingListState();
+  State<ToDoListPage> createState() => _ToDoListPageState();
 }
 
-class _ResponsiveShoppingListState extends State<ResponsiveShoppingList> {
-  final dbHelper = DatabaseHelper();
-  List<ShoppingItem> shoppingList = [];
-  ShoppingItem? selectedItem;
-
-  final nameController = TextEditingController();
-  final quantityController = TextEditingController();
+class _ToDoListPageState extends State<ToDoListPage> {
+  final TextEditingController _itemController = TextEditingController();
+  late TodoDao _todoDao;
+  List<Todo> _items = [];
 
   @override
   void initState() {
     super.initState();
+    _todoDao = widget.database.todoDao;
     _loadItems();
   }
 
-  void _loadItems() async {
-    final items = await dbHelper.getItems();
+  Future<void> _loadItems() async {
+    final items = await _todoDao.findAllTodos();
     setState(() {
-      shoppingList = items;
+      _items = items;
     });
   }
 
-  void _deleteItem(ShoppingItem item) async {
-    await dbHelper.deleteItem(item.id!);
-    setState(() {
-      shoppingList.remove(item);
-      selectedItem = null;
-    });
+  Future<void> _addItem() async {
+    if (_itemController.text.isEmpty) return;
+
+    final newItem = Todo(
+      DateTime.now().millisecondsSinceEpoch,
+      _itemController.text,
+    );
+
+    await _todoDao.insertTodo(newItem);
+    _itemController.clear();
+    _loadItems();
   }
 
-  void _selectItem(ShoppingItem item) {
-    setState(() {
-      selectedItem = item;
-    });
+  Future<void> _deleteItem(Todo todo) async {
+    await _todoDao.deleteTodo(todo);
+    _loadItems();
   }
 
-  void _addItem() async {
-    if (nameController.text.isNotEmpty && quantityController.text.isNotEmpty) {
-      final newItem = ShoppingItem(nameController.text, quantityController.text);
-      newItem.id = await dbHelper.insertItem(newItem);
-      setState(() {
-        shoppingList.add(newItem);
-        nameController.clear();
-        quantityController.clear();
-      });
-    }
+  void _showDeleteDialog(BuildContext context, Todo todo) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Item'),
+          content: const Text('Are you sure you want to delete this item?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                _deleteItem(todo);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isWide = constraints.maxWidth >= 600;
-
-      return Scaffold(
-        appBar: AppBar(title: Text("Responsive Shopping List")),
-        body: isWide
-            ? Row(
-          children: [
-            Expanded(child: _buildListView()),
-            VerticalDivider(),
-            Expanded(child: selectedItem != null ? _buildDetailView(isWide) : Center(child: Text("Select an item"))),
-          ],
-        )
-            : (selectedItem == null ? _buildListView() : _buildDetailView(isWide)),
-      );
-    });
-  }
-
-  Widget _buildListView() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(controller: nameController, decoration: InputDecoration(hintText: 'Item Name')),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: TextField(controller: quantityController, decoration: InputDecoration(hintText: 'Quantity')),
-              ),
-              SizedBox(width: 8),
-              ElevatedButton(onPressed: _addItem, child: Text("Add")),
-            ],
-          ),
-        ),
-        Expanded(
-          child: shoppingList.isEmpty
-              ? Center(child: Text("No items"))
-              : ListView.builder(
-            itemCount: shoppingList.length,
-            itemBuilder: (context, index) {
-              final item = shoppingList[index];
-              return ListTile(
-                title: Text(item.name),
-                subtitle: Text("Quantity: ${item.quantity}"),
-                onTap: () => _selectItem(item),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDetailView(bool isWide) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ListTile(title: Text("Item: ${selectedItem?.name}")),
-        ListTile(title: Text("Quantity: ${selectedItem?.quantity}")),
-        ListTile(title: Text("Database ID: ${selectedItem?.id}")),
-        Row(
-          children: [
-            ElevatedButton(
-              onPressed: () => _deleteItem(selectedItem!),
-              child: Text("Delete"),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('To-Do List'),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _itemController,
+                    decoration: const InputDecoration(
+                      labelText: 'Add a new to-do item',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _addItem,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  ),
+                  child: const Text('Add'),
+                ),
+              ],
             ),
-            SizedBox(width: 16),
-            ElevatedButton(
-              onPressed: () => setState(() => selectedItem = null),
-              child: Text("Close"),
+          ),
+          Expanded(
+            child: _items.isEmpty
+                ? const Center(
+              child: Text(
+                'No to-do items yet',
+                style: TextStyle(fontSize: 18),
+              ),
+            )
+                : ListView.builder(
+              itemCount: _items.length,
+              itemBuilder: (context, index) {
+                final todo = _items[index];
+                return GestureDetector(
+                  onLongPress: () => _showDeleteDialog(context, todo),
+                  child: Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        todo.description,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
